@@ -10,6 +10,7 @@ function RadioPlayer.new(bodyData, keypadProxy, buttonId)
     self.eventName = "control_" .. self.id
     
     self.isPaused = false
+    self.currentTick = 0
     
     local function playLoop()
         local cursor = 1
@@ -20,12 +21,14 @@ function RadioPlayer.new(bodyData, keypadProxy, buttonId)
                 local _, action = event.pull(self.eventName)
                 if action == "resume" then self.isPaused = false
                 elseif action == "stop" then break
-                elseif action == "rewind" then cursor = 1; self.isPaused = false end
+                elseif action == "rewind" then cursor = 1; self.isPaused = false 
+                end
             else
                 local delay = string.byte(bodyData, cursor)
                 cursor = cursor + 1
 
                 if delay > 0 then
+                    self.currentTick = self.currentTick + delay 
                     local e, action = event.pull(delay * 0.05, self.eventName)
                     
                     if e == self.eventName then
@@ -77,6 +80,10 @@ function RadioPlayer.new(bodyData, keypadProxy, buttonId)
     function self:getStatus()
         if not self.playerThread then return "dead" end
         return self.playerThread:status()
+    end
+
+    function self:getCurrentTick()
+        return self.currentTick
     end
 
     return self
