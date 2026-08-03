@@ -10,24 +10,12 @@ local MUSIC_DIR = "/usr/tracks/"
 local keypad = component.rbmk_keypad
 local trackDatabase = {}
 
-local function safePrint(msg)
-    local _, y = term.getCursor()
-    term.setCursor(1, y)
-    term.clearLine()
-    print(msg)
-    
-    local prompt = "/>"
-    io.write(prompt) 
-    term.setCursor(3, y+2)
-end
-
 local function formatTime(ticks)
     local totalSeconds = math.floor(ticks * 0.05)
     local minutes = math.floor(totalSeconds / 60)
     local seconds = totalSeconds % 60
     return string.format("%02d:%02d", minutes, seconds)
 end
-
 -- ==========================================
 -- ЛОГИКА БАЗЫ ДАННЫХ И ПЛЕЙЛИСТА
 -- ==========================================
@@ -88,8 +76,10 @@ local function radioDaemon(initialGenres)
     local trackIndex = 1
     local nextGenres = nil
 
-    if #playlist == 0 then safePrint("[Радио] Треки не найдены!"); return end
-    safePrint("[Радио] Эфир запущен в фоне. (radio help)")
+    if #playlist == 0 then print("[Радио] Треки не найдены! Возвращаюсь к общему плейлисту.")
+        initialGenres = {"All"}
+        playlist = generatePlaylist(initialGenres)
+    end
 
     while true do
         if trackIndex > #playlist then
@@ -116,22 +106,11 @@ local function radioDaemon(initialGenres)
             local e, action, arg = event.pull(0.5, "radio_cmd")
             
             if e == "radio_cmd" then
-                if action == "stop" then
-                    currentPlayer:stop()
-                    safePrint("[Радио] Эфир полностью остановлен.")
-                    return
-                elseif action == "pause" then
-                    currentPlayer:pause()
-                    safePrint("[Радио] Пауза.")
-                elseif action == "resume" then
-                    currentPlayer:resume()
-                    safePrint("[Радио] Возобновление.")
-                elseif action == "skip" then
-                    currentPlayer:stop()
-                    safePrint("[Радио] Трек пропущен.")
-                elseif action == "change" then
-                    nextGenres = arg
-                    safePrint("[Радио] Жанр изменен (применится после трека).")
+                if action == "stop" then currentPlayer:stop() return
+                elseif action == "pause" then currentPlayer:pause()
+                elseif action == "resume" then currentPlayer:resume()
+                elseif action == "skip" then currentPlayer:stop()
+                elseif action == "change" then nextGenres = arg
                 elseif action == "status" then
                     local curTicks = currentPlayer:getCurrentTick()
                     event.push("radio_status_reply", trackName, initialGenres, curTicks, totalTicks)
@@ -144,7 +123,10 @@ local function radioDaemon(initialGenres)
             initialGenres = nextGenres
             trackIndex = 1
             nextGenres = nil
-            if #playlist == 0 then safePrint("[Радио] Пустой плейлист. Остановка."); return end
+            if #playlist == 0 then print("[Радио] Пустой плейлист. Возвращаюсь к общему плейлисту.")
+                initialGenres = {"All"}
+                playlist = generatePlaylist(initialGenres)
+             end
         else
             trackIndex = trackIndex + 1
         end
@@ -192,7 +174,9 @@ elseif cmd == "change" then
     if #args < 2 then print("Укажите жанр!"); return end
     local genres = {}
     for i = 2, #args do table.insert(genres, args[i]) end
+    print("Смена плейлиста. Применится после завершения текущего трека.")
     event.push("radio_cmd", "change", genres)
+
 else
     print("Неизвестная команда.")
 end
